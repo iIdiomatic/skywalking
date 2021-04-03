@@ -115,7 +115,7 @@ public class AlarmRulesWatcher extends ConfigChangeWatcher {
         return this.rules.getCompositeRules();
     }
 
-    public List<String> getWebHooks() {
+    public Webhooks getWebHooks() {
         return this.rules.getWebhooks();
     }
 

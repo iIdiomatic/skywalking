@@ -47,7 +47,7 @@ public class AlarmCoreTest {
 
         Rules emptyRules = new Rules();
         emptyRules.setRules(new ArrayList<>(0));
-        emptyRules.setWebhooks(new ArrayList<>(0));
+        emptyRules.setWebhooks(new Webhooks());
         AlarmCore core = new AlarmCore(new AlarmRulesWatcher(emptyRules, null));
 
         Map<String, List<RunningRule>> runningContext = Whitebox.getInternalState(core, "runningContext");

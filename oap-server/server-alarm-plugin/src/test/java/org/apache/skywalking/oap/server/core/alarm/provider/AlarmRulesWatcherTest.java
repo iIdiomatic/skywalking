@@ -76,9 +76,8 @@ public class AlarmRulesWatcherTest {
         int length = reader.read(chars);
 
         alarmRulesWatcher.notify(new ConfigChangeWatcher.ConfigChangeEvent(new String(chars, 0, length), ConfigChangeWatcher.EventType.MODIFY));
-
         assertEquals(3, alarmRulesWatcher.getRules().size());
-        assertEquals(2, alarmRulesWatcher.getWebHooks().size());
+        assertEquals(2, alarmRulesWatcher.getWebHooks().getHttpHooks().size());
         assertNotNull(alarmRulesWatcher.getGrpchookSetting());
         assertEquals(9888, alarmRulesWatcher.getGrpchookSetting().getTargetPort());
         assertEquals(2, alarmRulesWatcher.getRunningContext().size());
@@ -97,7 +96,7 @@ public class AlarmRulesWatcherTest {
         alarmRulesWatcher.notify(new ConfigChangeWatcher.ConfigChangeEvent("whatever", ConfigChangeWatcher.EventType.DELETE));
 
         assertEquals(0, alarmRulesWatcher.getRules().size());
-        assertEquals(0, alarmRulesWatcher.getWebHooks().size());
+        assertEquals(0, alarmRulesWatcher.getWebHooks().getHttpHooks().size());
         assertNull(alarmRulesWatcher.getGrpchookSetting());
         assertEquals(0, alarmRulesWatcher.getRunningContext().size());
     }
