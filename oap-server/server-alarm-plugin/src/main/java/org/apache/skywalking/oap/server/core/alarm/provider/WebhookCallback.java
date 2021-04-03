@@ -21,8 +21,10 @@ package org.apache.skywalking.oap.server.core.alarm.provider;
 import com.google.gson.Gson;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHeaders;
@@ -34,8 +36,11 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContexts;
 import org.apache.skywalking.oap.server.core.alarm.AlarmCallback;
 import org.apache.skywalking.oap.server.core.alarm.AlarmMessage;
+
+import javax.net.ssl.SSLContext;
 
 /**
  * Use SkyWalking alarm webhook API call a remote endpoints.
@@ -61,49 +66,82 @@ public class WebhookCallback implements AlarmCallback {
 
     @Override
     public void doAlarm(List<AlarmMessage> alarmMessage) {
-        if (alarmRulesWatcher.getWebHooks().isEmpty()) {
+        if (alarmRulesWatcher ==null || alarmRulesWatcher.getWebHooks() ==null) {
             return;
         }
+        alarmRulesWatcher.getWebHooks().getHttpHooks().forEach(url -> {
+            executeHook(alarmMessage, url , null);
+        });
+        alarmRulesWatcher.getWebHooks().getHttpsHooks().forEach(httpsHook -> {
+            try{
+                SSLContext sslContext = createContext(httpsHook.getKeyStorePath(), httpsHook.getKeyStorePass(), httpsHook.getKeyPass(), httpsHook.getKeyStoreInstanceType());
+                executeHook(alarmMessage, httpsHook.getUrl(), sslContext);
+            }catch (Exception ex){
+                log.error(ex.getMessage(), ex);
+            }
+        });
+    }
 
-        CloseableHttpClient httpClient = HttpClients.custom().build();
-        try {
-            alarmRulesWatcher.getWebHooks().forEach(url -> {
-                HttpPost post = new HttpPost(url);
-                post.setConfig(requestConfig);
-                post.setHeader(HttpHeaders.ACCEPT, HttpHeaderValues.APPLICATION_JSON.toString());
-                post.setHeader(HttpHeaders.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON.toString());
+    private void executeHook(List<AlarmMessage> alarmMessage, String url, SSLContext context){
+        {
+            CloseableHttpClient httpClient = getHttpClient(context);
+            HttpPost post = new HttpPost(url);
+            post.setConfig(requestConfig);
+            post.setHeader(HttpHeaders.ACCEPT, HttpHeaderValues.APPLICATION_JSON.toString());
+            post.setHeader(HttpHeaders.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON.toString());
 
-                StringEntity entity;
-                CloseableHttpResponse httpResponse = null;
-                try {
-                    entity = new StringEntity(gson.toJson(alarmMessage), StandardCharsets.UTF_8);
-                    post.setEntity(entity);
-                    httpResponse = httpClient.execute(post);
-                    StatusLine statusLine = httpResponse.getStatusLine();
-                    if (statusLine != null && statusLine.getStatusCode() != HttpStatus.SC_OK) {
-                        log.error("send alarm to " + url + " failure. Response code: " + statusLine.getStatusCode());
-                    }
-                } catch (UnsupportedEncodingException e) {
-                    log.error("Alarm to JSON error, " + e.getMessage(), e);
-                } catch (IOException e) {
-                    log.error("send alarm to " + url + " failure.", e);
-                } finally {
-                    if (httpResponse != null) {
-                        try {
-                            httpResponse.close();
-                        } catch (IOException e) {
-                            log.error(e.getMessage(), e);
-                        }
-
-                    }
-                }
-            });
-        } finally {
+            StringEntity entity;
+            CloseableHttpResponse httpResponse = null;
             try {
-                httpClient.close();
+                entity = new StringEntity(gson.toJson(alarmMessage), StandardCharsets.UTF_8);
+                post.setEntity(entity);
+                httpResponse = httpClient.execute(post);
+                StatusLine statusLine = httpResponse.getStatusLine();
+                if (statusLine != null && statusLine.getStatusCode() != HttpStatus.SC_OK) {
+                    log.error("send alarm to " + url + " failure. Response code: " + statusLine.getStatusCode());
+                }
+            } catch (UnsupportedEncodingException e) {
+                log.error("Alarm to JSON error, " + e.getMessage(), e);
             } catch (IOException e) {
-                log.error(e.getMessage(), e);
+                log.error("send alarm to " + url + " failure.", e);
+            } finally {
+                if (httpResponse != null) {
+                    try {
+                        httpResponse.close();
+                        httpClient.close();
+                    } catch (IOException e) {
+                        log.error(e.getMessage(), e);
+                    }
+
+                }
             }
         }
     }
+
+    private KeyStore readStore(String keyStorePath, String keyStorePass, String keyStoreType ) throws Exception {
+        try (InputStream keyStoreStream = this.getClass().getResourceAsStream(keyStorePath)) {
+            KeyStore keyStore = KeyStore.getInstance(keyStoreType);
+            keyStore.load(keyStoreStream, keyStorePass.toCharArray());
+            return keyStore;
+        }
+    }
+
+    private SSLContext createContext(String keyStorePath, String keyStorePass, String keyPass, String keyStoreType) throws Exception{
+        SSLContext sslContext = SSLContexts.custom()
+                .loadKeyMaterial(readStore(keyStorePath, keyStorePass,  keyStoreType), keyPass.toCharArray()) // use null as second param if you don't have a separate key password
+                .build();
+        return sslContext;
+    }
+
+    private CloseableHttpClient getHttpClient(SSLContext sslContext){
+        CloseableHttpClient httpClient;
+        if(sslContext != null){
+            httpClient = HttpClients.custom().setSSLContext(sslContext).build();
+        }else{
+            httpClient = HttpClients.custom().build();
+        }
+        return httpClient;
+    }
+
+
 }

@@ -117,14 +117,39 @@ public class RulesReader {
      * Read web hook config
      */
     private void readWebHookConfig(Rules rules) {
-        List webhooks = (List) yamlData.get("webhooks");
-        if (webhooks != null) {
-            rules.setWebhooks(new ArrayList<>());
-            webhooks.forEach(url -> {
-                rules.getWebhooks().add((String) url);
-            });
-        }
+        Map webhooksMap = (Map) yamlData.get("webhooks");
+        Webhooks webhooks = new Webhooks();
+        List<String> httpHooks = (List) webhooksMap.getOrDefault("http", new ArrayList<String>());
+        webhooks.setHttpHooks(httpHooks);
+        List<Map> httpsHooks = (List)webhooksMap.getOrDefault("https", new ArrayList<Map>());
+        httpsHooks.forEach(map -> {
+            HttpsHook httpsHook = new HttpsHook();
+            Object keyPass = map.get("key_pass");
+            if(keyPass != null){
+                httpsHook.setKeyPass((String) keyPass);
+            }
+            Object url = map.get("url");
+            if(url != null){
+                httpsHook.setUrl((String) url);
+            }
+            Object keyStorePath = map.get("key_store_path");
+            if(keyStorePath != null ){
+                httpsHook.setKeyStorePath((String)keyStorePath);
+            }
+            Object keyStorePass = map.get("key_store_pass");
+            if(keyStorePass != null ){
+                httpsHook.setKeyStorePass((String)keyStorePass);
+            }
+            Object keyStoreInstanceType = map.get("key_store_instance_type");
+            if(keyStoreInstanceType !=null ){
+                httpsHook.setKeyStoreInstanceType((String)keyStoreInstanceType);
+            }
+            webhooks.getHttpsHooks().add(httpsHook);
+        });
+        rules.setWebhooks(webhooks);
+
     }
+
 
     /**
      * Read grpc hook config into {@link GRPCAlarmSetting}

@@ -64,9 +64,18 @@ composite-rules:
     message: xxxxx
 
 webhooks:
-  - http://127.0.0.1/notify/
-  - http://127.0.0.1/go-wechat/
-
+  http:
+    - http://127.0.0.1/notify/
+    - http://127.0.0.1/go-wechat/
+  https:
+    - key_pass: testkeypass
+      key_store_pass: testpass
+      key_store_path: "test path"
+      url: "https://ssldomain1.com/message"
+    - key_pass: testkeypass
+      key_store_pass: testpass
+      key_store_path: "test path"
+      url: "https://ssldomain1.com/message"
 gRPCHook:
   target_host: 127.0.0.1
   target_port: 9888

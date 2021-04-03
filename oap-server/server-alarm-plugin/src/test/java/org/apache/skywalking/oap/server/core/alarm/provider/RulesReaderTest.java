@@ -54,7 +54,7 @@ public class RulesReaderTest {
         Assert.assertEquals("service_c", ruleList.get(1).getExcludeNames().get(0));
         Assert.assertEquals("Alarm caused by Rule service_percent_rule", ruleList.get(1).getMessage());
 
-        List<String> rulesWebhooks = rules.getWebhooks();
+        List<String> rulesWebhooks = rules.getWebhooks().getHttpHooks();
         Assert.assertEquals(2, rulesWebhooks.size());
         Assert.assertEquals("http://127.0.0.1/go-wechat/", rulesWebhooks.get(1));
 
